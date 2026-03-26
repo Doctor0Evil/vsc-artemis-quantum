@@ -1,0 +1,78 @@
+# Filename: qpudatashardsparticles/ArtemisEnvPlanes2026v1.aln
+# Destination: ./qpudatashardsparticles/ArtemisEnvPlanes2026v1.aln
+
+aln ArtemisEnvPlanes2026v1
+
+record NodeCore2026v1
+  string shardid
+  string nodeid
+  string plane        # hydraulic, energy, neuromorphic, carbon_health
+  string region       # e.g., Phoenix-AZ-US
+  float lat
+  float lon
+  string timestamputciso8601
+  string lane         # EXP, PROD
+  bool kerdeployable
+
+record KerFields2026v1
+  string shardid
+  float kscore0to1
+  float escore0to1
+  float rscore0to1
+  float vt
+  string evidencehex
+
+record HydraulicMetrics2026v1
+  string shardid
+  float flowm3s
+  float cin_tss_mgL
+  float cout_tss_mgL
+  float cin_fog_mgL
+  float cout_fog_mgL
+  float residencetimemin
+  float r_tss
+  float r_fog
+  float r_res_time
+
+record EnergyMetrics2026v1
+  string shardid
+  float headm
+  float flowm3s
+  float efficiency
+  float powerkw
+  float r_energy
+  float r_carbon
+  float r_fish
+
+record NeuromorphicMetrics2026v1
+  string shardid
+  float eventratehz
+  float falsepositiverate
+  float falsenegativerate
+  float driftscore
+  float r_sensor
+  float r_uncertainty
+
+record CarbonHealthMetrics2026v1
+  string shardid
+  float co2kgperton
+  float noxgperm3
+  float pm10mgperm3
+  float dioxinngteqperm3
+  float r_co2
+  float r_nox
+  float r_pm
+  float r_dioxin_who
+  float r_dioxin_legal
+
+record KerEcoLedger2026v1
+  string basinid
+  float lat
+  float lon
+  float k_avg0to1
+  float e_avg0to1
+  float r_avg0to1
+  float ecoimpactscore
+  float karmaperton
+  bool within_corridors
+  string evidencehex
