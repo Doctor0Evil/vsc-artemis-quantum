@@ -1,0 +1,149 @@
+[package]
+name = "artemis-corridor-synergy"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.75.0"
+authors = ["Artemis EcoNet Governance <governance@econet.artemis>"]
+description = "Rust FFI wrapper for Artemis Corridor Synergy Kernel - bounded eco-infrastructure optimization"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/econet/vsc-artemis-quantum"
+homepage = "https://artemis.econet.io"
+documentation = "https://docs.econet.io/artemis/corridor-synergy"
+readme = "README.md"
+keywords = ["artemis", "econet", "eco-impact", "corridor", "optimization", "ffi", "ceim", "ker"]
+categories = ["science", "api-bindings", "algorithms"]
+exclude = ["tests/fixtures/*.csv", "benches/data/*.json", ".gitignore", ".env*"]
+build = "build.rs"
+
+[lib]
+name = "artemis_corridor_synergy"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+doctest = true
+test = true
+bench = true
+doc = true
+
+[[bin]]
+name = "artemis-corridor-cli"
+path = "src/bin/cli.rs"
+required-features = ["cli"]
+test = true
+bench = false
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+harness = true
+required-features = ["testing"]
+
+[[bench]]
+name = "kernel_performance"
+path = "benches/kernel_performance.rs"
+harness = false
+required-features = ["benchmarking"]
+
+[features]
+default = ["std"]
+std = []
+cli = ["clap", "serde", "serde_json", "csv"]
+testing = ["proptest", "quickcheck", "tempfile"]
+benchmarking = ["criterion", "pprof"]
+full = ["cli", "testing", "benchmarking"]
+nightly = []
+
+[dependencies]
+libc = { version = "0.2.150", default-features = false }
+thiserror = { version = "1.0.50", default-features = false }
+serde = { version = "1.0.193", default-features = false, features = ["derive"], optional = true }
+serde_json = { version = "1.0.108", default-features = false, features = ["std"], optional = true }
+csv = { version = "1.3.0", default-features = false, optional = true }
+clap = { version = "4.4.11", features = ["derive", "env"], optional = true }
+hex = { version = "0.4.3", default-features = false, features = ["std"] }
+sha3 = { version = "0.10.8", default-features = false }
+chrono = { version = "0.4.31", default-features = false, features = ["clock", "std"] }
+log = { version = "0.4.20", default-features = false }
+env_logger = { version = "0.10.1", default-features = false, optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+proptest = { version = "1.4.0", default-features = false, features = ["std"] }
+quickcheck = { version = "1.0.3", default-features = false }
+tempfile = { version = "3.8.1", default-features = false }
+pprof = { version = "0.13.0", features = ["flamegraph", "criterion"] }
+rand = { version = "0.8.5", default-features = false, features = ["std", "std_rng"] }
+
+[build-dependencies]
+cc = { version = "1.0.83", features = ["parallel"] }
+bindgen = { version = "0.68.1", default-features = false, features = ["runtime"] }
+pkg-config = { version = "0.3.27", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+debug = false
+rpath = false
+
+[profile.dev]
+opt-level = 0
+debug = "line-tables-only"
+panic = "unwind"
+overflow-checks = true
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[package.metadata.cargo-audit]
+ignore = ["RUSTSEC-2023-0071"]
+severity_threshold = "high"
+
+[package.metadata.clippy]
+allow = ["missing_safety_doc", "too_many_arguments"]
+deny = ["unsafe_code", "clippy::pedantic"]
+
+[package.metadata.aln]
+contract_version = "1.0.0"
+contract_hash = "0x21d4a9c73f58e2b19a40c6d8e3f7b5a1c9e2047f3a8d6b2c51e07f49a3c6d8e2b7f1049c3e8a6d2f5b1c7e9a304f6d1c9"
+namespace = "artemis.econet.corridor.synergy"
+ledger = "artemis-quantum-ledger"
+compliance = ["CEIM-XJ-v2.1", "KER-v1.4", "qpudatashard-v3.0", "ALN-v2.0"]
+governance_authority = "phoenix-urban-planning-dept"
+action_radius_lat = [33.44, 33.45]
+action_radius_lon = [-112.08, -112.07]
+karma_namespace = "artemis.econet"
+audit_public = true
+
+[package.metadata.vulnerability-database]
+last_updated = "2026-01-01T00:00:00Z"
+check_frequency_hours = 24
+auto_patch = false
+notify_on_critical = true
+
+[workspace]
+members = [
+    ".",
+    "../src/kernel",
+    "../wiring",
+    "../android",
+    "../web",
+    "../proposals"
+]
+resolver = "2"
+
+[workspace.metadata]
+project = "vsc-artemis-quantum"
+version = "1.0.0"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/econet/vsc-artemis-quantum"
+documentation = "https://docs.econet.io/artemis"
