@@ -1,0 +1,228 @@
+@spec_version: 2026.03.27
+@domain: vsc-artemis.governance.quantum
+@sovereignty: aug-citizen-enclave
+@binding: mt6883-brainip-mandatory
+@parent_spec: quantum-vm-plane-2026-03-27.aln
+
+governancecontract quantum-governance-frame-v1 {
+  contract_id: uuid-v4-governance-quantum-001
+  contract_version: 1.0.0
+  effective_epoch: 2026.03.27
+  expiration_epoch: 2027.03.27
+  sovereignty_class: aug-citizen-sovereign
+  financial_blacklist_enforced: true
+  trade_operations_blocked: true
+  currency_operations_blocked: true
+}
+
+validatorrequirements quantum-validator-qualifications {
+  minimum_stake_type: compute-energy-joules
+  minimum_stake_amount: 10000.0
+  mt6883_binding_required: true
+  enclave_label_required: aug-citizen-quantum-isolate
+  pq_signature_scheme_required: crystals-dilithium-hybrid
+  ed25519_legacy_accepted: true
+  ed25519_deprecation_epoch: 2027.01.01
+  minimum_uptime_percent: 99.5
+  maximum_energy_deviation: 0.15
+  roh_cap_compliance: 0.20
+  veco_cap_compliance: 0.30
+  lyapunov_stability_required: stable
+  kf_estimate_minimum: 0.90
+  brain_identity_attested: true
+  zero_knowledge_audit_passed: true
+}
+
+votingmechanism quantum-consensus-voting {
+  vote_type: weighted-compute-energy
+  vote_weight_formula: joules_contributed_normalized
+  quorum_threshold: 0.67
+  supermajority_threshold: 0.75
+  quantum_proof_weight_multiplier: 1.5
+  classical_signal_weight: 1.0
+  mt6883_binding_bonus: 0.1
+  enclave_verified_bonus: 0.1
+  vote_validity_window_ms: 10000
+  stale_vote_rejection: enabled
+  replay_attack_prevention: enabled
+  vote_encryption: aes-256-gcm
+  vote_authentication: hmac-sha3-512
+}
+
+cryptosuite quantum-cryptography-standards {
+  primary_signature_scheme: crystals-dilithium-5
+  secondary_signature_scheme: ed25519
+  hybrid_keypair_enabled: true
+  key_encapsulation_mechanism: crystals-kyber-1024
+  hash_function: sha3-512
+  symmetric_encryption: aes-256-gcm
+  key_derivation_function: argon2id-quantum-safe
+  salt_source: mt6883-hardware-rng
+  iv_source: quantum-measurement-entropy
+  nonce_source: cryptographic-secure-random
+  key_rotation_interval_days: 90
+  hybrid_transition_period_days: 180
+  pq_mandatory_epoch: 2026.12.31
+}
+
+keyrotation quantum-key-management-policy {
+  rotation_trigger: time_based_or_compromise_detected
+  rotation_interval_days: 90
+  grace_period_days: 30
+  monotone_upgrade_only: true
+  downgrade_prohibited: true
+  hybrid_keypair_during_transition: true
+  legacy_key_retention_days: 365
+  key_derivation_salt_length: 32
+  key_encapsulation_ciphertext_max: 1568
+  signature_public_key_max: 2592
+  signature_secret_key_max: 2528
+  key_storage_enclave: mt6883-secure-element
+  key_backup_prohibited: true
+  key_export_prohibited: true
+  key_destruction_verified: true
+}
+
+quantumevents quantum-governance-event-types {
+  event_type_001: quantum-circuit-execution-approved
+  event_type_002: quantum-circuit-execution-denied
+  event_type_003: energy-threshold-breach
+  event_type_004: mt6883-binding-verified
+  event_type_005: mt6883-binding-failed
+  event_type_006: qkd-session-established
+  event_type_007: qkd-session-expired
+  event_type_008: logical-qubit-reconstructed
+  event_type_009: validator-key-rotated
+  event_type_010: pq-signature-mandatory-enforced
+  event_type_011: roh-cap-exceeded
+  event_type_012: veco-cap-exceeded
+  event_type_013: lyapunov-instability-detected
+  event_type_014: consensus-epoch-validated
+  event_type_015: consensus-epoch-rejected
+  event_emission_required: true
+  event_logging_immutable: true
+  event_auditable_zero_knowledge: true
+}
+
+proposaltypes quantum-governance-proposal-categories {
+  proposal_type_001: quantum-region-parameter-adjustment
+  proposal_type_002: energy-threshold-modification
+  proposal_type_003: validator-slashing-condition
+  proposal_type_004: pq-crypto-algorithm-upgrade
+  proposal_type_005: mt6883-binding-policy-change
+  proposal_type_006: enclave-security-parameter-update
+  proposal_type_007: logical-qubit-replication-factor
+  proposal_type_008: syndrome-collection-interval
+  proposal_type_009: circuit-breaker-threshold-adjustment
+  proposal_type_010: governance-voting-weight-formula
+  proposal_submission_mt6883_required: true
+  proposal_voting_quantum_proof_required: true
+  proposal_execution_energy_bounded: true
+}
+
+slashingconditions quantum-validator-penalties {
+  condition_001: energy_threshold_breach: slash_percent: 10.0
+  condition_002: mt6883_binding_falsified: slash_percent: 100.0
+  condition_003: enclave_label_spoofed: slash_percent: 100.0
+  condition_004: quantum_trace_forged: slash_percent: 50.0
+  condition_005: vote_replay_detected: slash_percent: 25.0
+  condition_006: stale_proof_submitted: slash_percent: 15.0
+  condition_007: roh_cap_exceeded: slash_percent: 5.0
+  condition_008: veco_cap_exceeded: slash_percent: 5.0
+  condition_009: lyapunov_instability_ignored: slash_percent: 20.0
+  condition_010: pq_signature_bypass_attempted: slash_percent: 100.0
+  slashing_enforcement_automatic: true
+  slashing_appeal_window_days: 7
+  slashing_governance_review_required: true
+}
+
+auditrequirements quantum-governance-audit-standards {
+  audit_type: zero_knowledge_compliance
+  audit_frequency_days: 30
+  audit_scope: full_quantum_vm_plane
+  audit_energy_tracking: required
+  audit_mt6883_binding_verification: required
+  audit_enclave_isolation_check: required
+  audit_pq_signature_validation: required
+  audit_key_rotation_compliance: required
+  audit_slashing_enforcement_review: required
+  audit_voting_integrity_check: required
+  audit_consensus_epoch_validation: required
+  audit_report_immutable: true
+  audit_report_encrypted: aes-256-gcm
+  audit_report_signatures: crystals-dilithium-hybrid
+  audit_findings_public: false
+  audit_findings_sovereign_only: true
+}
+
+emergencypolicies quantum-governance-emergency-procedures {
+  emergency_trigger_001: energy_critical_threshold_breach
+  emergency_trigger_002: mt6883_mass_compromise_detected
+  emergency_trigger_003: pq_crypto_break_detected
+  emergency_trigger_004: consensus_failure_extended
+  emergency_trigger_005: enclave_isolation_breach
+  emergency_action_001: halt_all_quantum_circuits
+  emergency_action_002: revoke_all_active_sessions
+  emergency_action_003: force_key_rotation_all_validators
+  emergency_action_004: freeze_validator_registrations
+  emergency_action_005: activate_backup_consensus_mechanism
+  emergency_quorum_threshold: 0.51
+  emergency_execution_window_ms: 5000
+  emergency_reversal_governance_vote_required: true
+  emergency_post_mortem_mandatory: true
+}
+
+compliancereporting quantum-governance-compliance-metrics {
+  metric_001: quantum_circuit_execution_count
+  metric_002: total_energy_consumed_joules
+  metric_003: average_joules_per_gate
+  metric_004: mt6883_binding_success_rate
+  metric_005: pq_signature_adoption_rate
+  metric_006: validator_uptime_average
+  metric_007: consensus_epoch_success_rate
+  metric_008: slashing_events_count
+  metric_009: key_rotation_compliance_rate
+  metric_010: audit_findings_resolved_rate
+  metric_export_format: prometheus-compatible
+  metric_export_interval_seconds: 60
+  metric_retention_days: 365
+  metric_sovereign_access_only: true
+  metric_financial_derivation_prohibited: true
+}
+
+interoperability quantum-governance-cross-chain-bridge {
+  bridge_type: threshold-secured
+  bridge_organichain_enabled: true
+  bridge_aln_blockchain_enabled: true
+  bridge_external_chains_blocked: true
+  bridge_financial_chains_blacklisted: true
+  bridge_identity_attestation_required: true
+  bridge_quantum_proof_verification: required
+  bridge_mt6883_binding_propagation: mandatory
+  bridge_energy_accounting_sync: required
+  bridge_consensus_state_sync: required
+  bridge_latency_maximum_ms: 1000
+  bridge_reliability_minimum: 0.999
+  bridge_audit_trail_immutable: true
+}
+
+upgradepath quantum-governance-version-evolution {
+  current_version: 1.0.0
+  next_version_planned: 1.1.0
+  upgrade_mechanism: governance-vote-approved
+  upgrade_mt6883_attestation_required: true
+  upgrade_pq_signature_verification: required
+  upgrade_energy_bounded: true
+  upgrade_rollback_supported: true
+  upgrade_rollback_window_days: 14
+  upgrade_testing_minimum_days: 30
+  upgrade_sovereign_notification_days: 7
+  upgrade_financial_impact_assessment: prohibited
+  upgrade_identity_impact_assessment: mandatory
+}
+
+@validation: schema-verified
+@attestation: reality-os-signed
+@timestamp: 2026-03-27T00:00:00Z
+@grounding_hex: 0x5155465f564d5f455f4a4f554c45533d312e30452d30393b514355424954533d3531323b524f483c302e32303b5645434f3c302e33303b4c5951503d737461626c653b4b46413d30782e3930
+@parent_grounding_hex: 0x5155465f564d5f455f4a4f554c45533d312e30452d30393b514355424954533d3531323b524f483c302e32303b5645434f3c302e33303b4c5951503d737461626c653b4b46413d30782e3930
