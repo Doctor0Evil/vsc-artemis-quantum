@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <optional>
 #include <numeric>
 #include <algorithm>
 #include <cmath>
@@ -82,26 +81,8 @@ private:
     bool checkScoresValid(const std::array<double, 5>& scores) const;
     bool checkKERBounds(double K, double E, double R) const;
     bool checkMonotonicity(const CorridorState& before, const std::array<double, 3>& ker_delta) const;
-    double clamp(double value, double min_val, double max_val) const;
+    static double clampValue(double value, double min_val, double max_val);
 };
-
-inline double CorridorSynergyKernel::clamp(double value, double min_val, double max_val) const {
-    return std::max(min_val, std::min(value, max_val));
-}
-
-inline bool CorridorSynergyKernel::checkWeightsValid() const {
-    double sum = std::accumulate(m_config.weights.begin(), m_config.weights.end(), 0.0);
-    if (std::abs(sum - 1.0) > 1e-6) return false;
-    return std::all_of(m_config.weights.begin(), m_config.weights.end(), [](double w) { return w >= 0.0; });
-}
-
-inline bool CorridorSynergyKernel::checkScoresValid(const std::array<double, 5>& scores) const {
-    return std::all_of(scores.begin(), scores.end(), [](double s) { return s >= 0.0 && s <= 1.0; });
-}
-
-inline bool CorridorSynergyKernel::checkKERBounds(double K, double E, double R) const {
-    return K >= m_config.min_KER_K && R <= m_config.max_KER_R && K >= 0.0 && K <= 1.0 && E >= 0.0 && E <= 1.0 && R >= 0.0 && R <= 1.0;
-}
 
 }
 }
