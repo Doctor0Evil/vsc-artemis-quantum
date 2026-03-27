@@ -1,0 +1,56 @@
+alnspec v1.0 quantum-qvm-plane-2026-logic-resilience
+description Quantum plane particles and QVM-LOGIC-RESILIENCE lane with non-interference predicates
+version 2026.03.28
+owneralnid bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+
+lane QVM-LOGIC-RESILIENCE
+  nonfinancial true
+  rewardinvisible true
+  financeforbidden true
+  tradeforbidden true
+end
+
+particle QuantumVMRegion
+  field regionid string required
+  field chipbinding string required
+  field maxqubits uint32 required
+  field rohcaplocal float required max 0.30
+  field vecocaplocal float required max 0.30
+  field lane string required enum QVM-LOGIC-RESILIENCE
+end
+
+particle QuantumCircuitProfile
+  field profileid string required
+  field regionid string required
+  field rohbudgetjob float required max 0.30
+  field vecobudgetjob float required max 0.30
+  field financeforbidden bool required true
+  field tradeforbidden bool required true
+  field lane string required enum QVM-LOGIC-RESILIENCE
+end
+
+particle LogicalQubitMap
+  field logicalid string required
+  field codedistance uint32 required
+  field stabilizerlayout string required
+  field rohcapstatic float required max 0.30
+  field vecocapstatic float required max 0.30
+  field kfestimatestatic float required min 0.0 max 1.0
+end
+
+particle QuantumLogicShard
+  field logicalid string required
+  field step_index uint64 required
+  field rnodeavail float required
+  field rsyndromeweight float required
+  field rrftail float required
+  field vtlogic float required max 1.0
+  field lane string required enum QVM-LOGIC-RESILIENCE
+end
+
+invariant quantumorthogonalok
+  description No QVM-LOGIC-RESILIENCE fields may appear in EcoNet reward or neurorights contracts
+  predicate forbidimportfrom
+    expr lane == "QVM-LOGIC-RESILIENCE" => NOT IN (ECONET-REWARD, BI-NEURORIGHTS)
+  ensures quantumorthogonalok
+endinvariant
