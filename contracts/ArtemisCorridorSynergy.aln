@@ -1,0 +1,235 @@
+@contract ArtemisCorridorSynergy v1.0.0
+@namespace artemis.econet.corridor.synergy
+@ledger artemis-quantum-ledger
+@hash 0x21d4a9c73f58e2b19a40c6d8e3f7b5a1c9e2047f3a8d6b2c51e07f49a3c6d8e2b7f1049c3e8a6d2f5b1c7e9a304f6d1c9
+
+@schema CorridorState {
+    corridor_id: string[1,64] required
+    lat: float64[-90.0,90.0] required
+    lon: float64[-180.0,180.0] required
+    eco_scores: array[float64[0.0,1.0];5] required
+    K: float64[0.0,1.0] required
+    E: float64[0.0,1.0] required
+    R: float64[0.0,1.0] required
+    timestamp_unix: uint64 required
+    evidence_hex: string[66,128] required
+}
+
+@schema InterventionDef {
+    intervention_id: string[1,64] required
+    intervention_type: string[1,128] required
+    response_coeffs: array[float64[0.0,1.0];5] required
+    cost_usd: float64[0.01,100000000.0] required
+    energy_kwh: float64[0.0,1000000.0] required
+    land_m2: float64[0.0,10000000.0] required
+    ker_delta: array[float64[-1.0,1.0];3] required
+    linked_evidence_hex: string[66,128] required
+}
+
+@schema RankedIntervention {
+    corridor_id: string[1,64] required
+    intervention_id: string[1,64] required
+    synergy_gain: float64[0.0,1.0] required
+    cost_usd: float64[0.01,100000000.0] required
+    efficiency_ratio: float64[0.0,1000000.0] required
+    projected_KER: array[float64[0.0,1.0];3] required
+    safety_flags: uint8[0,255] required
+}
+
+@schema KernelConfig {
+    weights: array[float64[0.0,1.0];5] required
+    max_cost_per_corridor: float64[1.0,100000000.0] required
+    min_KER_K: float64[0.0,1.0] required
+    max_KER_R: float64[0.0,1.0] required
+    enforce_monotonicity: bool required
+    config_version: string[1,64] required
+    valid_from_unix: uint64 required
+    valid_until_unix: uint64 required
+}
+
+@invariant WeightSumEqualsOne {
+    condition: sum(config.weights) == 1.0
+    tolerance: 1e-6
+    violation_action: reject
+}
+
+@invariant WeightNonNegative {
+    condition: all(config.weights[i] >= 0.0 for i in 0..4)
+    violation_action: reject
+}
+
+@invariant EcoScoreBounds {
+    condition: all(corridor.eco_scores[i] >= 0.0 && corridor.eco_scores[i] <= 1.0 for i in 0..4)
+    violation_action: reject
+}
+
+@invariant KERBoundsValid {
+    condition: corridor.K >= config.min_KER_K && corridor.R <= config.max_KER_R
+    violation_action: reject
+}
+
+@invariant MonotonicityEnforced {
+    condition: !config.enforce_monotonicity || (projected_KER[0] >= corridor.K && projected_KER[1] >= corridor.E && projected_KER[2] <= corridor.R)
+    violation_action: reject
+}
+
+@invariant CostPositive {
+    condition: intervention.cost_usd > 0.0
+    violation_action: reject
+}
+
+@invariant GeographicBounds {
+    condition: corridor.lat >= 33.0 && corridor.lat <= 34.0 && corridor.lon >= -113.0 && corridor.lon <= -111.0
+    scope: phoenix_corridors_only
+    violation_action: flag_for_review
+}
+
+@rule PhoenixDefaultWeights {
+    applies_to: KernelConfig
+    weights: [0.18, 0.22, 0.18, 0.24, 0.18]
+    config_version: "phoenix-2026-v1"
+    valid_from_unix: 1735689600
+    valid_until_unix: 1767225600
+    min_KER_K: 0.85
+    max_KER_R: 0.20
+    enforce_monotonicity: true
+    max_cost_per_corridor: 5000000.0
+}
+
+@rule WeightUpdateProcedure {
+    requires: governance_approval_signature
+    requires: aln_manifest_update
+    requires: ledger_commitment
+    requires: expert_review_quorum: 3
+    cooldown_days: 30
+    max_weight_change: 0.05
+}
+
+@rule InterventionApproval {
+    requires: linked_evidence_hex
+    requires: ker_impact_positive
+    requires: cost_benefit_ratio_min: 0.001
+    requires: safety_flags_zero
+    auto_approve_if: K >= 0.90 && E >= 0.85 && R <= 0.15
+}
+
+@rule CorridorPilotValidation {
+    requires: pre_implementation_shard_hash
+    requires: post_implementation_shard_hash
+    requires: ceim_gain_measured: true
+    requires: expert_review_completed: true
+    validation_window_days: 90
+    min_ceim_improvement: 0.05
+}
+
+@binding IdentityArtemis {
+    bostrom_address: 0xMT6883-CYBERNETIC-BRAINIP
+    did: did:econet:artemis:corridor:synergy:v1
+    karma_namespace: artemis.econet
+    currentKarma: float64[0.0,1000.0]
+    karma_update_rule: ceim_realized_gain
+}
+
+@binding IdentityPhoenix {
+    jurisdiction: City of Phoenix
+    corridor_bounds: lat[33.44,33.45] lon[-112.08,-112.07]
+    governance_authority: phoenix-urban-planning-dept
+    approval_threshold: 0.75
+}
+
+@ledger Commitment {
+    shard_hash_algorithm: SHA3-256
+    ledger_type: low-energy-proof-of-stake
+    commit_frequency: hourly
+    retention_days: 365
+    audit_public: true
+}
+
+@audit Trail {
+    log_all_validations: true
+    log_all_rejections: true
+    log_all_weight_changes: true
+    log_all_pilot_results: true
+    retention_days: 2555
+    encryption: AES-256-GCM
+}
+
+@api ReadOnly {
+    endpoint: /api/v1/corridors/synergy/score
+    method: GET
+    auth: karma_token_required
+    rate_limit: 100/hour
+    response_schema: CorridorState
+}
+
+@api ReadOnly {
+    endpoint: /api/v1/interventions/ranked
+    method: GET
+    auth: karma_token_required
+    rate_limit: 50/hour
+    response_schema: array[RankedIntervention]
+}
+
+@api ReadOnly {
+    endpoint: /api/v1/config/current
+    method: GET
+    auth: public
+    rate_limit: 1000/hour
+    response_schema: KernelConfig
+}
+
+@error InvalidWeightSum {
+    code: 1001
+    message: Weight sum must equal 1.0 within tolerance
+    http_status: 400
+}
+
+@error InvalidEcoScore {
+    code: 1002
+    message: Eco scores must be in range [0.0, 1.0]
+    http_status: 400
+}
+
+@error KERViolation {
+    code: 1003
+    message: Projected KER violates safety bounds
+    http_status: 403
+}
+
+@error MonotonicityViolation {
+    code: 1004
+    message: Intervention decreases K or E or increases R
+    http_status: 403
+}
+
+@error CostOverflow {
+    code: 1005
+    message: Intervention cost exceeds corridor budget
+    http_status: 400
+}
+
+@error GeographicViolation {
+    code: 1006
+    message: Corridor outside authorized action radius
+    http_status: 403
+}
+
+@version History {
+    v1.0.0: initial_release
+    v1.0.0.date: 2026-01-01
+    v1.0.0.hash: 0x21d4a9c73f58e2b19a40c6d8e3f7b5a1c9e2047f3a8d6b2c51e07f49a3c6d8e2b7f1049c3e8a6d2f5b1c7e9a304f6d1c9
+    v1.0.0.signer: did:econet:artemis:governance:v1
+}
+
+@compliance EcoNet {
+    ceim_version: CEIM-XJ-v2.1
+    ker_version: KER-v1.4
+    qpudatashard_version: QPDS-v3.0
+    aln_version: ALN-v2.0
+    iso_14851_compatible: true
+    epa_aligned: true
+    eu_aligned: true
+    who_aligned: true
+}
+
+@end
