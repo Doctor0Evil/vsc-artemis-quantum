@@ -1,0 +1,46 @@
+alnspec v1.0 nexus-eco-lanes
+description Regionlink eco lanes and per-particle RoH/Veco envelopes
+version 2026.03.28
+owneralnid bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+
+binding regionlink
+  field eco_lane_id
+    type string
+    required true
+  field allowed_particle_classes
+    type list<string>
+    required true
+    enum QPUJOBDESCRIPTORV1,qpudatashardv1,quantum-event-v1,control-ancilla
+  field roh_band_max_link
+    type float
+    required true
+    max 0.30
+  field veco_band_max_link
+    type float
+    required true
+    max 0.30
+  field lyapunov_envelope_required
+    type string
+    required true
+    ref QuantumCircuitInvariant.v1.invariantid
+  predicate link_caps_valid
+    expr roh_band_max_link <= 0.30 && veco_band_max_link <= 0.30
+  invariant all
+    ensures link_caps_valid
+endbinding
+
+policy NexusEcoLaneRouter.v1
+description Compute-aware router constraints for qubit eco particles
+rule allow_qubit_particle_on_regionlink
+  when
+    QubitEcoParticle.v1.channel_class in regionlink.allowed_particle_classes &&
+    QubitEcoParticle.v1.eco_lane_band matches regionlink.eco_lane_id &&
+    QubitEcoParticle.v1.roh_band_max <= regionlink.roh_band_max_link &&
+    QubitEcoParticle.v1.veco_band_max <= regionlink.veco_band_max_link &&
+    QubitEcoParticle.v1.lyapunov_envelope_id == regionlink.lyapunov_envelope_required
+  then
+    admit
+  else
+    deny eco_lane_violation
+endrule
+endpolicy
