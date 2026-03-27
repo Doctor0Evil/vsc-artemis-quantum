@@ -1,0 +1,64 @@
+
+aln alnspec v1.0
+fileid artemis-quantum-circuit-invariants
+description Artemis quantum-learning circuit invariant KO for VSC-Artemis
+version 2026.03.26
+owneralnid bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+
+# 1. Canonical circuit-invariant object (missing KO)
+object QuantumCircuitInvariant.v1
+  field invariantid           type string  required true
+  field description           type string  required true
+
+  # Lyapunov form: V(z) = zᵀ P z, with P ≻ 0
+  field p_matrix_flat         type float   required true  length 64
+  field v_soft_limit          type float   required true  default 0.70
+  field v_hard_limit          type float   required true  default 0.85
+
+  # RoH / Veco hard bounds for every step in the circuit
+  field roh_cap_step          type float   required true  max 0.30
+  field veco_cap_step         type float   required true  max 0.30
+
+  # Engagement metric: Evol = KF*(1 - RoH)  (scalar envelope)
+  field kf_static             type float   required true  min 0.0  max 1.0
+  field evol_min              type float   required true  default 0.0
+
+  # QPU topology applicability (so schedulers know where this invariant is valid)
+  field qpu_qubits_min        type int     required true  min 1
+  field qpu_qubits_max        type int     required true
+  field qpu_gate_depth_max    type int     required true
+  field qpu_family_tag        type string  required true  # e.g. "superconducting.v1"
+
+  # Formal proof artifact anchors (Coq/Isabelle/SMT certificates)
+  field proof_hash            type string  required true
+  field proof_system          type string  required true  # e.g. "coq-8.19", "isabelle-2025"
+  field proof_uri             type string  required false
+
+endobject
+
+# 2. Binding a circuit invariant to a QPUShard (bridge to existing KO)
+extend QPUShard.v1
+  field circuit_invariant_ref type string  required true  # invariantid in QuantumCircuitInvariant.v1
+endextend
+
+# 3. Binding to QCS-ALN decode region (execution-time enforcement)
+extend virtualregion region.phx.qpu-batch.qcs-aln
+  field circuit_invariant_required type string required true
+endextend
+
+# 4. Scheduler admission rule as ALN policy atom
+policy artemis.qpu-circuit-admission
+  description "Only admit QPUShard.v1 if its invariant matches region + RoH/Veco caps."
+
+  rule allow_if_invariant_compatible
+    when
+      QPUShard.v1.circuit_invariant_ref == QuantumCircuitInvariant.v1.invariantid
+      and region.qpuqubitstotal between QuantumCircuitInvariant.v1.qpu_qubits_min, QuantumCircuitInvariant.v1.qpu_qubits_max
+      and region.rohcaplocal <= QuantumCircuitInvariant.v1.roh_cap_step
+      and region.vecocaplocal <= QuantumCircuitInvariant.v1.veco_cap_step
+    then
+      admit
+    else
+      deny "qpu_invariant_mismatch"
+  endrule
+endpolicy
