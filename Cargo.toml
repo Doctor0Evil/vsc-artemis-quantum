@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ker-core",
+    "crates/logicalqubits",
+    "crates/qpushards",
+    "vsc-artemis-guards",
+    "vsc-artemis-core",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+authors = ["Project Artemis <artemis@vsc-quantum.org>"]
+license = "MIT"
+
+[workspace.dependencies]
+ker-core = { path = "crates/ker-core" }
+logicalqubits = { path = "crates/logicalqubits" }
+qpushards = { path = "crates/qpushards" }
+
+[workspace.metadata]
+crate_roles = { "ker-core" = "qvm-resilience", "logicalqubits" = "qvm-resilience", "qpushards" = "qvm-resilience", "vsc-artemis-guards" = "guardian", "vsc-artemis-core" = "core" }
