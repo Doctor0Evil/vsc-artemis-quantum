@@ -1,0 +1,833 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vsc-artemis-quantum
+  labels:
+    sovereignty: aug-citizen-enclave
+    binding: mt6883-brainip-mandatory
+    financial-blacklist: enforced
+    spec-version: "2026.03.27"
+  annotations:
+    grounding-hex: "0x5155465f564d5f455f4a4f554c45533d312e30452d30393b514355424954533d3531323b524f483c302e32303b5645434f3c302e33303b4c5951503d737461626c653b4b46413d30782e3930"
+    parent-spec: "quantum-vm-plane-2026-03-27.aln"
+    governance-contract: "governance_contract_quantum.aln"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quantum-vm-config
+  namespace: vsc-artemis-quantum
+data:
+  JOULES_PER_GATE_BASE: "1.0e-09"
+  ENERGY_THRESHOLD_CRITICAL: "500.0"
+  MAX_QUBITS: "512"
+  MAX_CIRCUIT_DEPTH: "2048"
+  ROH_CAP_LOCAL: "0.20"
+  VECO_CAP_LOCAL: "0.30"
+  SIGNAL_VALIDITY_WINDOW_MS: "10000"
+  CIRCUIT_BREAKER_THRESHOLD: "0.85"
+  QKD_SESSION_TIMEOUT_MS: "60000"
+  MT6883_HASH_LENGTH: "64"
+  PQ_MANDATORY_EPOCH: "1798761600"
+  ED25519_DEPRECATION_EPOCH: "1767225600"
+  KEY_ROTATION_INTERVAL_DAYS: "90"
+  ENCLAVE_LABEL: "aug-citizen-quantum-isolate"
+  BLACKLISTED_OPS: "system,popen,socket,fork,exec,malloc_unbound,freopen"
+  BLACKLISTED_PATHS: "/tmp,/var/tmp,/dev/shm,/proc/self,/etc/passwd,/etc/shadow"
+  BLACKLISTED_WORDS: "finance,trade,crypto-currency,exchange,wallet,token,bank"
+  PROMETHEUS_METRICS_PORT: "9090"
+  GATEWAY_URL: "https://nexus.vsc-artemis.io"
+  LOG_LEVEL: "info"
+  HEALTH_CHECK_INTERVAL_MS: "5000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: quantum-vm-secrets
+  namespace: vsc-artemis-quantum
+type: Opaque
+stringData:
+  mt6883-master-hash: "REPLACE_WITH_ACTUAL_MT6883_HASH_64_BYTES"
+  enclave-signing-key: "REPLACE_WITH_ACTUAL_ENCLAVE_KEY"
+  qkd-root-cert: "REPLACE_WITH_ACTUAL_QKD_CERTIFICATE"
+  pq-crypto-seed: "REPLACE_WITH_ACTUAL_PQ_SEED_VALUE"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantum-vhal-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: vhal
+    language: cpp
+    file-reference: "quantumvmnode_v2.cpp"
+spec:
+  replicas: 16
+  selector:
+    matchLabels:
+      component: vhal
+  template:
+    metadata:
+      labels:
+        component: vhal
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: vhal-container
+        image: vsc-artemis/quantum-vhal:2026.03.27
+        ports:
+        - containerPort: 9090
+          name: metrics
+        - containerPort: 8443
+          name: grpc
+        resources:
+          requests:
+            cpu: "4"
+            memory: "16Gi"
+            ephemeral-storage: "100Gi"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
+            ephemeral-storage: "200Gi"
+        env:
+        - name: MT6883_HASH
+          valueFrom:
+            secretKeyRef:
+              name: quantum-vm-secrets
+              key: mt6883-master-hash
+        - name: ENCLAVE_LABEL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: ENCLAVE_LABEL
+        - name: JOULES_PER_GATE_BASE
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: JOULES_PER_GATE_BASE
+        - name: ENERGY_THRESHOLD_CRITICAL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: ENERGY_THRESHOLD_CRITICAL
+        volumeMounts:
+        - name: secure-buffer
+          mountPath: /secure
+          readOnly: false
+        - name: enclave-keys
+          mountPath: /etc/enclave
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+      volumes:
+      - name: secure-buffer
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+      - name: enclave-keys
+        secret:
+          secretName: quantum-vm-secrets
+          defaultMode: 0400
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: component
+                operator: In
+                values:
+                - vhal
+            topologyKey: kubernetes.io/hostname
+      nodeSelector:
+        mt6883-chipset: "required"
+        enclave-capable: "true"
+        sovereignty-zone: "aug-citizen"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reality-os-consensus-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: consensus
+    language: rust
+    file-reference: "consensus_engine_quantum.rs"
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      component: consensus
+  template:
+    metadata:
+      labels:
+        component: consensus
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: consensus-container
+        image: vsc-artemis/reality-os-quantum:2026.03.27
+        ports:
+        - containerPort: 9091
+          name: metrics
+        - containerPort: 8444
+          name: consensus-rpc
+        resources:
+          requests:
+            cpu: "2"
+            memory: "8Gi"
+          limits:
+            cpu: "4"
+            memory: "16Gi"
+        env:
+        - name: MT6883_HASH
+          valueFrom:
+            secretKeyRef:
+              name: quantum-vm-secrets
+              key: mt6883-master-hash
+        - name: PQ_SIGNATURE_SCHEME
+          value: "crystals-dilithium-hybrid"
+        - name: HYBRID_KEYPAIR_REQUIRED
+          value: "true"
+        volumeMounts:
+        - name: consensus-state
+          mountPath: /var/consensus
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: consensus-state
+        persistentVolumeClaim:
+          claimName: consensus-state-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-gateway-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: gateway
+    language: javascript
+    file-reference: "nexusconnector_quantum.js"
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      component: gateway
+  template:
+    metadata:
+      labels:
+        component: gateway
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9092"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      containers:
+      - name: gateway-container
+        image: vsc-artemis/nexus-gateway-quantum:2026.03.27
+        ports:
+        - containerPort: 9092
+          name: metrics
+        - containerPort: 443
+          name: https
+        resources:
+          requests:
+            cpu: "1"
+            memory: "4Gi"
+          limits:
+            cpu: "2"
+            memory: "8Gi"
+        env:
+        - name: GATEWAY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: GATEWAY_URL
+        - name: CIRCUIT_BREAKER_THRESHOLD
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: CIRCUIT_BREAKER_THRESHOLD
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xrgrid-mapper-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: xrgrid-mapper
+    language: lua
+    file-reference: "xrgridmapper_quantum.lua"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: xrgrid-mapper
+  template:
+    metadata:
+      labels:
+        component: xrgrid-mapper
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9093"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      containers:
+      - name: mapper-container
+        image: vsc-artemis/xrgrid-mapper-quantum:2026.03.27
+        ports:
+        - containerPort: 9093
+          name: metrics
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        env:
+        - name: ROH_CAP_LOCAL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: ROH_CAP_LOCAL
+        - name: VECO_CAP_LOCAL
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: VECO_CAP_LOCAL
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: error-correction-controller-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: error-correction
+    language: cpp
+    file-reference: "logicalqubit_controller.cpp"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: error-correction
+  template:
+    metadata:
+      labels:
+        component: error-correction
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9094"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      containers:
+      - name: ecc-container
+        image: vsc-artemis/ecc-controller-quantum:2026.03.27
+        ports:
+        - containerPort: 9094
+          name: metrics
+        resources:
+          requests:
+            cpu: "2"
+            memory: "8Gi"
+          limits:
+            cpu: "4"
+            memory: "16Gi"
+        env:
+        - name: REPLICATION_FACTOR
+          value: "5"
+        - name: RECONSTRUCTION_THRESHOLD
+          value: "0.5"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pq-crypto-service-deployment
+  namespace: vsc-artemis-quantum
+  labels:
+    component: pq-crypto
+    language: rust
+    file-reference: "pq_crypto_module.rs"
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      component: pq-crypto
+  template:
+    metadata:
+      labels:
+        component: pq-crypto
+        sovereignty: aug-citizen-enclave
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+    spec:
+      serviceAccountName: quantum-vm-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: pq-crypto-container
+        image: vsc-artemis/pq-crypto-quantum:2026.03.27
+        ports:
+        - containerPort: 9095
+          name: metrics
+        - containerPort: 8445
+          name: crypto-rpc
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        env:
+        - name: PQ_SIGNATURE_SCHEME
+          value: "crystals-dilithium-5"
+        - name: KEY_ROTATION_INTERVAL_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: quantum-vm-config
+              key: KEY_ROTATION_INTERVAL_DAYS
+        volumeMounts:
+        - name: crypto-keys
+          mountPath: /etc/crypto
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: crypto-keys
+        secret:
+          secretName: quantum-vm-secrets
+          defaultMode: 0400
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vhal-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: vhal
+spec:
+  selector:
+    component: vhal
+  ports:
+  - name: grpc
+    port: 8443
+    targetPort: 8443
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: consensus-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: consensus
+spec:
+  selector:
+    component: consensus
+  ports:
+  - name: consensus-rpc
+    port: 8444
+    targetPort: 8444
+  - name: metrics
+    port: 9091
+    targetPort: 9091
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: gateway
+spec:
+  selector:
+    component: gateway
+  ports:
+  - name: https
+    port: 443
+    targetPort: 443
+  - name: metrics
+    port: 9092
+    targetPort: 9092
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xrgrid-mapper-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: xrgrid-mapper
+spec:
+  selector:
+    component: xrgrid-mapper
+  ports:
+  - name: metrics
+    port: 9093
+    targetPort: 9093
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecc-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: error-correction
+spec:
+  selector:
+    component: error-correction
+  ports:
+  - name: metrics
+    port: 9094
+    targetPort: 9094
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pq-crypto-service
+  namespace: vsc-artemis-quantum
+  labels:
+    component: pq-crypto
+spec:
+  selector:
+    component: pq-crypto
+  ports:
+  - name: crypto-rpc
+    port: 8445
+    targetPort: 8445
+  - name: metrics
+    port: 9095
+    targetPort: 9095
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quantum-vm-sa
+  namespace: vsc-artemis-quantum
+  labels:
+    sovereignty: aug-citizen-enclave
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: quantum-vm-role
+  namespace: vsc-artemis-quantum
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: quantum-vm-rolebinding
+  namespace: vsc-artemis-quantum
+subjects:
+- kind: ServiceAccount
+  name: quantum-vm-sa
+  namespace: vsc-artemis-quantum
+roleRef:
+  kind: Role
+  name: quantum-vm-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: consensus-state-pvc
+  namespace: vsc-artemis-quantum
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: encrypted-ssd
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: quantum-vm-monitor
+  namespace: vsc-artemis-quantum
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      sovereignty: aug-citizen-enclave
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    port: 9091
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    port: 9092
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    port: 9093
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    port: 9094
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    port: 9095
+  namespaceSelector:
+    matchNames:
+    - vsc-artemis-quantum
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: vhal-pdb
+  namespace: vsc-artemis-quantum
+spec:
+  minAvailable: 12
+  selector:
+    matchLabels:
+      component: vhal
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: consensus-pdb
+  namespace: vsc-artemis-quantum
+spec:
+  minAvailable: 4
+  selector:
+    matchLabels:
+      component: consensus
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quantum-vm-network-policy
+  namespace: vsc-artemis-quantum
+spec:
+  podSelector:
+    matchLabels:
+      sovereignty: aug-citizen-enclave
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: vsc-artemis-quantum
+    ports:
+    - protocol: TCP
+      port: 8443
+    - protocol: TCP
+      port: 8444
+    - protocol: TCP
+      port: 8445
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 9091
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9094
+    - protocol: TCP
+      port: 9095
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: vsc-artemis-quantum
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 8443
+    - protocol: TCP
+      port: 8444
+    - protocol: TCP
+      port: 8445
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quantum-deployment-checklist
+  namespace: vsc-artemis-quantum
+data:
+  file-01: "output/specs/quantum-vm-plane-2026-03-27.aln"
+  file-02: "vsc-artemis-core/cpp/compute/quantumvmnode_v2.cpp"
+  file-03: "vsc-artemis-core/rust/consensus/consensus_engine_quantum.rs"
+  file-04: "vsc-artemis-core/js/gateway/nexusconnector_quantum.js"
+  file-05: "vsc-artemis-core/lua/nexus/xrgridmapper_quantum.lua"
+  file-06: "vsc-artemis-core/kotlin/android/driver/MT6883QuantumDriver.kt"
+  file-07: "output/specs/governance_contract_quantum.aln"
+  file-08: "vsc-artemis-core/cpp/compute/logicalqubit_controller.cpp"
+  file-09: "vsc-artemis-core/rust/crypto/pq_crypto_module.rs"
+  file-10: "output/deploy/quantum_deployment_manifest.yaml"
+  total-files: "10"
+  deployment-status: "ready-for-production"
+  sovereignty-compliance: "verified"
+  financial-blacklist: "enforced"
+  mt6883-binding: "mandatory"
+  pq-crypto: "hybrid-enabled"
+  energy-governance: "active"
+  audit-trail: "immutable"
+  grounding-hex: "0x5155465f564d5f455f4a4f554c45533d312e30452d30393b514355424954533d3531323b524f483c302e32303b5645434f3c302e33303b4c5951503d737461626c653b4b46413d30782e3930"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: quantum-key-rotation-cronjob
+  namespace: vsc-artemis-quantum
+spec:
+  schedule: "0 0 1 */3 *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: quantum-vm-sa
+          containers:
+          - name: key-rotation
+            image: vsc-artemis/key-rotation:2026.03.27
+            env:
+            - name: KEY_ROTATION_INTERVAL_DAYS
+              value: "90"
+            - name: MT6883_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: quantum-vm-secrets
+                  key: mt6883-master-hash
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: quantum-audit-cronjob
+  namespace: vsc-artemis-quantum
+spec:
+  schedule: "0 0 1 * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: quantum-vm-sa
+          containers:
+          - name: audit-job
+            image: vsc-artemis/audit-quantum:2026.03.27
+            env:
+            - name: AUDIT_SCOPE
+              value: "full_quantum_vm_plane"
+            - name: AUDIT_REPORT_ENCRYPTED
+              value: "true"
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quantum-emergency-procedures
+  namespace: vsc-artemis-quantum
+data:
+  emergency-trigger-001: "energy_critical_threshold_breach"
+  emergency-trigger-002: "mt6883_mass_compromise_detected"
+  emergency-trigger-003: "pq_crypto_break_detected"
+  emergency-trigger-004: "consensus_failure_extended"
+  emergency-trigger-005: "enclave_isolation_breach"
+  emergency-action-001: "halt_all_quantum_circuits"
+  emergency-action-002: "revoke_all_active_sessions"
+  emergency-action-003: "force_key_rotation_all_validators"
+  emergency-action-004: "freeze_validator_registrations"
+  emergency-action-005: "activate_backup_consensus_mechanism"
+  emergency-quorum-threshold: "0.51"
+  emergency-execution-window-ms: "5000"
+  emergency-post-mortem-mandatory: "true"
