@@ -1,0 +1,27 @@
+alnfixture v1.0 QubitEcoParticle.v1.smoketest
+instance QubitEcoParticle.v1 qepv1_example
+  particle_id qepv1_ABCDEF0123456789
+  parent_qpushard_id shard_qpu_phx_001
+  logical_qubit_map_ref lqmap_v2_phx_main
+  region_ref region.phx.qpu-batch
+  channel_class QPUJOBDESCRIPTORV1
+  particle_role data
+  rohcapstatic 0.30
+  vecocapstatic 0.30
+  kfestimatestatic 0.85
+  lyapunov_v 0.50
+  lyapunov_dvdt -0.01
+  neurorightsflags ["no-repurpose","no-tightening","no-third-party"]
+  brain_identity_binding mt6883brain-ABCDEF0123456789ABCDEF0123456789
+  eco_lane_band lane.roh-mid
+  lyapunov_envelope_id invariant_qc_phx_v1
+  roh_band_min 0.00
+  roh_band_max 0.20
+  veco_band_min 0.00
+  veco_band_max 0.20
+  created_at 2026-03-28T01:59:00Z
+  provenancehash 0x1234abcd
+  neurorights_policy_ref aln://artemis/neurorights/core-v1
+  safetylevel eco-qubit-l2
+  verificationscope admission-runtime
+endinstance
