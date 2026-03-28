@@ -1,0 +1,40 @@
+particle ResearchPlanShard.v1
+
+field shard_id          string
+field title             string
+field epoch_grammar     string
+field author_did        string
+field created_at_utc    string
+field hexstamp          string
+
+table hypothesis
+  field plane               string
+  field entity              string
+  field hypothesis_text     string
+  field target_metric_ids   string[]
+  field target_corridor_ids string[]
+  field expected_delta_r    f64
+  field expected_delta_vt   f64
+  field expected_delta_e    f64
+end
+
+table method
+  field experimental_method   string
+  field site_context          string[]
+  field sampling_plan         string
+  field control_treatment     string
+end
+
+table ker_safety
+  field k_score               f64
+  field e_score               f64
+  field r_score               f64
+  field lane_requested        string
+  field corridor_impact       string
+end
+
+table evidence
+  field input_datasets        string[]
+  field telemetry_snapshots   string[]
+  field governance_requirements string[]
+end
