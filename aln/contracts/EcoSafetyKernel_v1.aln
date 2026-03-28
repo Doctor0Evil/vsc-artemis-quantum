@@ -1,0 +1,28 @@
+contract EcoSafetyKernel_v1
+
+invariant kerdeployable
+  description "Minimum KER thresholds for deployment lanes"
+  scope global
+  condition |
+    lane == "RESEARCH": K >= 0.85, E >= 0.85, R <= 0.20
+    lane == "PILOT": K >= 0.90, E >= 0.90, R <= 0.15
+    lane == "PRODUCTION": K >= 0.94, E >= 0.91, R <= 0.13
+  enforcement ci_gate
+  violation_action REJECT_DEPLOY
+
+invariant lyapunov_nonincrease
+  description "Vt must not increase beyond configured epsilon"
+  scope all_controllers
+  condition |
+    Vt_t1 <= Vt_t0 + eps_vt
+  enforcement runtime
+  violation_action DERATE
+
+invariant corridor_mandatory
+  description "All actuation contracts must reference named corridors"
+  scope global
+  condition |
+    forall actuation in ActuationContracts:
+      actuation.corridor_ref EXISTS AND IN PolicyCorridorSpec
+  enforcement compile_time
+  violation_action REJECT_BUILD
