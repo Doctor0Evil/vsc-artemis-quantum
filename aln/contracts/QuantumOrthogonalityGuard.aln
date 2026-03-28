@@ -1,0 +1,44 @@
+contract QuantumOrthogonalityGuard.v1
+
+invariant quantumorthogonal_ok
+  description "Quantum plane fields MUST NOT appear in econet reward or identity contracts"
+  scope global
+  condition |
+    forall contract in EconetRewardContracts:
+      forall field in contract.fields:
+        field.source NOT IN {QuantumVMRegion, QuantumCircuitProfile, LogicalQubitMap, QuantumLogicShard}
+    forall contract in IdentityContracts:
+      forall field in contract.fields:
+        field.source NOT IN {QuantumVMRegion, QuantumCircuitProfile, LogicalQubitMap, QuantumLogicShard}
+  enforcement compile_time_and_runtime
+  violation_action REJECT_BUILD
+
+invariant rewardinvisible_quantum
+  description "Quantum shards are invisible to reward engines"
+  scope QVM-LOGIC-RESILIENCE
+  condition |
+    QuantumLogicShard.reward_invisible == true
+    QuantumLogicShard.finance_forbidden == true
+    QuantumLogicShard.trade_forbidden == true
+  enforcement schema_level
+  violation_action REJECT_SHARD
+
+invariant nocorridor_nobuild
+  description "No quantum job scheduled without corridor bands"
+  scope QuantumVMRegion, LogicalQubitMap
+  condition |
+    forall region in QuantumVMRegion:
+      region.corridor_bands EXISTS AND VALID
+    forall qubit in LogicalQubitMap:
+      qubit.corridor_bands EXISTS AND VALID
+  enforcement compile_time
+  violation_action REJECT_BUILD
+
+invariant derate_or_stop_on_violation
+  description "Lyapunov residual non-increase enforced on all quantum operations"
+  scope QuantumResilienceController
+  condition |
+    Vt_next <= Vt_prev + eps_vt
+    forall r_j in rx: r_j <= 1.0
+  enforcement runtime
+  violation_action DERATE_OR_STOP
