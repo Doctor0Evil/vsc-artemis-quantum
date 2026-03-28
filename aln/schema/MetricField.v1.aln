@@ -1,0 +1,35 @@
+particle MetricField.v1
+
+field metric_id           string
+field name                string
+field description         string
+field var_id              string
+field units               string
+field lyap_channel        u8
+field mandatory           bool
+
+table measurement
+  field source              string
+  field sampling_interval   string
+  field normalization_kernel string
+  field raw_min             f64
+  field raw_max             f64
+end
+
+table corridor_params
+  field safe_min            f64
+  field safe_max            f64
+  field gold_min            f64
+  field gold_max            f64
+  field hard_min            f64
+  field hard_max            f64
+  field weight_w            f64
+  field direction           string
+end
+
+table governance
+  field evidence_hex        string
+  field bostrom_did_publisher string
+  field epoch_grammar_version string
+  field ker_role            string
+end
