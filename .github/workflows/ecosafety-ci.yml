@@ -2,30 +2,112 @@ name: Ecosafety Spine
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, release/*]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Check mode (lint, build, ecosafety, all)'
+        required: false
+        default: 'all'
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+  POWERSHELL_TELEMETRY_OPTOUT: 1
 
 jobs:
   ecosafety:
+    name: Ecosafety Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Install Rust toolchain
-        uses: actions/setup-rust@v1
+        uses: dtolnay/rust-action@stable
         with:
-          rust-version: stable
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: ecosafety-spine
+
+      - name: Install Lua (for orthogonality checks)
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
 
       - name: Run ecosafety checks
         shell: pwsh
-        run: ./tools/ecosafety-check.ps1 -Mode all -SpecRepoPath ./ecosafety-spec
+        run: |
+          ./tools/ecosafety-check.ps1 `
+            -Mode "${{ github.event.inputs.mode || 'all' }}" `
+            -SpecRepoPath "./ecosafety-spec" `
+            -ToolchainPath "./target/release" `
+            -VerboseOutput
 
-      - name: Upload KER shard
+      - name: Upload KER summary artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ker-shard-${{ github.sha }}
-          path: shards/response/*.csv
+          name: ker-summary-${{ github.sha }}
+          path: |
+            ker_summary_output.json
+            shards/response/*.csv
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload ALN validation logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: aln-validation-logs-${{ github.sha }}
+          path: |
+            target/*.log
+            tools/*.log
+          retention-days: 7
+
+  orthogonality:
+    name: Cross-Plane Orthogonality
+    runs-on: ubuntu-latest
+    needs: ecosafety
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Run Lua dependency check
+        shell: pwsh
+        run: |
+          if (Test-Path "tools/luacicheckcrossplanedependencies.lua") {
+            lua tools/luacicheckcrossplanedependencies.lua Cargo.lock
+          } else {
+            Write-Host "Orthogonality script not found, skipping"
+          }
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run cargo audit
+        uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
