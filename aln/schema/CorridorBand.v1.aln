@@ -1,0 +1,27 @@
+particle CorridorBand.v1
+
+field band_id             string
+field name                string
+field target_region       string
+field lane                string
+field epoch_grammar_version string
+
+table linkage
+  field metric_constraints  MetricConstraint[]
+end
+
+table risk_view
+  field risk_level          string
+  field vt_channel          u8
+  field ker_gate_k          f64
+  field ker_gate_e          f64
+  field ker_gate_r          f64
+  field ker_deployable      bool
+end
+
+table governance
+  field escalation_triggers string[]
+  field breach_policies     string[]
+  field evidence_hex        string
+  field governance_did      string
+end
