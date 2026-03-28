@@ -1,0 +1,31 @@
+name: Ecosafety Spine
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ecosafety:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      - name: Run ecosafety checks
+        shell: pwsh
+        run: ./tools/ecosafety-check.ps1 -Mode all -SpecRepoPath ./ecosafety-spec
+
+      - name: Upload KER shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: ker-shard-${{ github.sha }}
+          path: shards/response/*.csv
