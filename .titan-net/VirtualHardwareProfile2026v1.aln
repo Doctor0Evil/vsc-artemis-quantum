@@ -1,0 +1,159 @@
+aln
+alnspec VirtualHardwareProfile2026v1
+version 1.0.0
+namespace vsc-artemis-quantum.titan-net
+
+header
+  shardid      0xa3c5d9f0b21e4a7ab8cc19d3e4579021
+  producer     bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+  network      ALN-MAINNET
+  issued.utc   2026-04-21T16:46:00Z
+  docref.id    HW-001
+  docref.kind  ALN.SCHEMA
+  docref.path  vsc-artemis-quantum/.titan-net/VirtualHardwareProfile2026v1.aln
+end
+
+schemarefs
+  vm.constellation  vsc-artemis/ALNSCHEMA.vm-constellation.aln
+  envplanes         vsc-artemis-core/vsc-artemis-core.specsArtemisEnvPlanesKernelParams2026v1.aln
+  ecoledger         vsc-artemis-core/vsc-artemis-core.specsArtemisKerEcoLedger2026v1.aln
+  nexusgraph        vsc-artemis-core/specs/ArtemisCyboquaticNexus2026v1.aln
+end
+
+---
+-- Schema for MT6883 / cluster virtual-hardware profiles referenced by
+-- Titan-Net simulators and scheduler decisions. This shard binds VM
+-- constellation nodes to CEIM/CPVM envelopes, RoH/Veco caps, and
+-- neurorights constraints at the hardware abstraction layer.
+---
+
+enum HardwareKind
+  MT6883_NODE
+  MT6883_CLUSTER
+  GENERIC_X86
+  GENERIC_ARM
+end
+
+enum NeurorightsMode
+  NONE
+  FPIC_HARDLOCKED
+  NO_DOWNGRADE_HARDLOCKED
+  FULL_HARDLOCKED
+end
+
+record CEIMEnvelope2026v1
+  ceim.profile.id      string   -- envplanes.CEIMKernelProfile2026v1.id
+  cpu.cores            int32
+  cpu.base_ghz         float
+  mem.gb               float
+  channelclass         string   -- e.g. "cyboquatic.bci", "cyboquatic.env"
+end
+
+record CPVMEnvelope2026v1
+  cpvm.profile.id      string   -- envplanes.CPVMKernelProfile2026v1.id
+  bci.bw.mbps          float    -- max BCI telemetry bandwidth
+  qpu.bw.meps          float    -- max measurement events per second
+  roh.cap.local        float    -- local RoH cap for this profile
+  veco.cap.local       float    -- local Veco cap for this profile
+end
+
+record NeurorightsCaps2026v1
+  mode                 NeurorightsMode
+  fpic.required        bool
+  no.downgrade         bool
+  brainidentity.affinity string  -- e.g. "MT6883", "BOSTROM", or empty
+end
+
+record VirtualHardwareProfile2026v1
+  profile.id           string
+  vm.node.id           string    -- vm-constellation node id
+  region.id            string
+  hardware.kind        HardwareKind
+
+  ceim.envelope        CEIMEnvelope2026v1
+  cpvm.envelope        CPVMEnvelope2026v1
+
+  roh.cap.global       float     -- copy of global RoH cap used for node
+  veco.cap.global      float     -- copy of global Veco cap used for node
+
+  neurorights          NeurorightsCaps2026v1
+end
+
+record VirtualHardwareProfileSet2026v1
+  shard.label          string
+  profiles             list VirtualHardwareProfile2026v1
+end
+
+---
+-- Invariants: alignment with VMConstellation and neurorights caps
+---
+
+rule vh_profile_vmnode_exists
+  description
+    Every VirtualHardwareProfile2026v1 must reference an existing
+    VMConstellation node.
+  enforcement hard
+    for p in VirtualHardwareProfileSet2026v1.profiles
+      vm.constellation.has_node p.vm.node.id
+    end
+  end
+end
+
+rule vh_profile_roh_veco_within_caps
+  description
+    Local RoH/Veco caps from CPVM envelope must not exceed global caps
+    encoded in this profile.
+  enforcement hard
+    for p in VirtualHardwareProfileSet2026v1.profiles
+      p.cpvm.envelope.roh.cap.local  <= p.roh.cap.global
+      p.cpvm.envelope.veco.cap.local <= p.veco.cap.global
+    end
+  end
+end
+
+rule vh_profile_ceim_cpvm_profiles_exist
+  description
+    CEIM/CPVM profile ids must exist in env-planes kernel parameters.
+  enforcement hard
+    for p in VirtualHardwareProfileSet2026v1.profiles
+      envplanes.has_ceim_profile  p.ceim.envelope.ceim.profile.id
+      envplanes.has_cpvm_profile  p.cpvm.envelope.cpvm.profile.id
+    end
+  end
+end
+
+rule vh_profile_neurorights_hardlocks
+  description
+    When neurorights mode is HARDLOCKED, enforce FPIC and no-downgrade flags.
+  enforcement hard
+    for p in VirtualHardwareProfileSet2026v1.profiles
+      if p.neurorights.mode == NeurorightsMode.FPIC_HARDLOCKED
+        p.neurorights.fpic.required == true
+      end
+      if p.neurorights.mode == NeurorightsMode.NO_DOWNGRADE_HARDLOCKED
+        p.neurorights.no.downgrade == true
+      end
+      if p.neurorights.mode == NeurorightsMode.FULL_HARDLOCKED
+        p.neurorights.fpic.required == true
+        p.neurorights.no.downgrade  == true
+      end
+    end
+  end
+end
+
+invariant inv.vh_profile_brainidentity_affinity
+  description
+    If a profile declares a brainidentity affinity it must be either
+    MT6883 or BOSTROM, consistent with NexusGraph and constellation.
+  scope VirtualHardwareProfile2026v1
+  enforcement hard
+    if len neurorights.brainidentity.affinity > 0
+      neurorights.brainidentity.affinity == "MT6883" or
+      neurorights.brainidentity.affinity == "BOSTROM"
+    end
+  end
+end
+
+hexgrounding
+  0x5649525455414c5f4844525f50524f46494c455f323032365f544954414e5f4e45545f4d54363838335f4e4f5f444f574e4752414445
+end
